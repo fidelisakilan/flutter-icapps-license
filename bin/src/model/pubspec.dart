@@ -21,15 +21,18 @@ class Params {
   static const yamlConfigPubDevBaseUrl = 'pub_dev_base_url';
   static const yamlConfigLicensesList = 'licenses';
   static const yamlConfigExtraLicensesList = 'extra_licenses';
+  static const yamlConfigSkippedLicensesList = 'skipped_licenses';
 
   late PubspecLock pubspecLock;
   String fileOutputPath = defaultFileOutputPath;
+  final String txtFileOutputPath = 'license.txt';
   String? projectName;
   var failFast = false;
   String? pubDevBaseUrlOverride;
   var checkBeforeGenerate = false;
   var downloadPubDevDetails = false;
   final _dependencies = <Dependency>[];
+  final _skippedDependencies = <String>[];
   final _dependencyOverrides = <String, String>{};
   final _extraDependencies = <ExtraDependency>[];
 
@@ -71,6 +74,8 @@ class Params {
           icappsLicenseConfig[yamlConfigLicensesList] as YamlMap?);
       _generateExtraLicenses(
           icappsLicenseConfig[yamlConfigExtraLicensesList] as YamlMap?);
+      _generateSkippedLicenses(
+          icappsLicenseConfig[yamlConfigSkippedLicensesList] as YamlMap?);
     }
 
     final packages = config['dependencies'] as YamlMap?;
@@ -110,6 +115,10 @@ class Params {
           if (package is! String) {
             throw ArgumentError(
                 'package should be a String: the name of the package');
+          }
+          if (_skippedDependencies.contains(package)) {
+            Logger.logInfo('Skipped $package');
+            continue;
           }
           final dynamic values = packages.value[package];
           Dependency dependency;
@@ -152,6 +161,25 @@ class Params {
           } else {
             throw FatalException('${value.runtimeType} is no String');
           }
+        } catch (e, trace) {
+          Logger.logInfo('Failed to parse: $package because of $e');
+          Logger.logError('Because of $e');
+          Logger.logStacktrace(trace);
+          rethrow;
+        }
+      }
+    }
+  }
+
+  void _generateSkippedLicenses(YamlMap? packages) {
+    if (packages != null) {
+      for (final package in packages.keys) {
+        try {
+          if (package is! String) {
+            throw ArgumentError(
+                'package should be a String: the name of the package');
+          }
+          _skippedDependencies.add(package);
         } catch (e, trace) {
           Logger.logInfo('Failed to parse: $package because of $e');
           Logger.logError('Because of $e');

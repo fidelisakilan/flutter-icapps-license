@@ -83,6 +83,9 @@ class LicenseGenerator {
       case 'generate':
         await _generateCommand.generateLicenses(_params);
         break;
+      case 'generateTxt':
+        await _generateCommand.generateLicensesTxtFile(_params);
+        break;
     }
   }
 

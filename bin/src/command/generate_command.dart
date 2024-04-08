@@ -125,4 +125,83 @@ class GenerateCommand {
       ..writeln('      ),');
     return sb.toString();
   }
+
+  Future<void> generateLicensesTxtFile(Params params) async {
+    if (params.checkBeforeGenerate) {
+      const CheckCommand().checkDependencies(params);
+      Logger.logInfo(
+          '\nYour pubspec.yaml & pubspec.lock are in sync. Generating the dart license file.\n');
+    }
+    final outputFile = File(params.txtFileOutputPath);
+    if (!outputFile.existsSync()) {
+      outputFile.createSync(recursive: true);
+    }
+
+    final sb = StringBuffer()
+      ..writeln(
+          '//============================================================//')
+      ..writeln('//THIS FILE IS AUTO GENERATED. DO NOT EDIT//')
+      ..writeln(
+          '//============================================================//')
+      ..writeln();
+
+    final allDependencies = <Dependency>[];
+    allDependencies.addAll(params.extraDependencies);
+    for (final dependency in params.dependencies) {
+      if (allDependencies
+          .where((element) => element.name == dependency.name)
+          .isEmpty) {
+        allDependencies.add(dependency);
+      }
+    }
+
+    final sortedDependencies = allDependencies
+      ..sort((a1, a2) => a1.name.compareTo(a2.name));
+
+    for (final dependency in sortedDependencies) {
+      if (dependency is ExtraDependency) {
+        sb.write(await _getExtraDependencyTextRaw(dependency));
+      } else {
+        final lockedDependency = params.pubspecLock.dependencies
+            .firstWhere((element) => element.name == dependency.name);
+        sb.write(
+            await _getDependencyTextRaw(params, dependency, lockedDependency));
+      }
+    }
+
+    outputFile.writeAsStringSync(sb.toString());
+  }
+
+  Future<String> _getDependencyTextRaw(Params params, Dependency dependency,
+      DependencyLock lockedDependency) async {
+    final licenseData = await _licenseRepo.getLicenseDataForDependency(
+        params, dependency, lockedDependency);
+    final sb = StringBuffer()
+      ..writeln()
+      ..writeln(
+          '----------------------------------------------------------------------------------------------------')
+      ..writeln('name: ${dependency.name}')
+      ..writeln('version: ${dependency.version}')
+      ..writeln('license: ${licenseData.license}')
+      ..writeln(
+          '----------------------------------------------------------------------------------------------------')
+      ..writeln();
+    return sb.toString();
+  }
+
+  Future<String> _getExtraDependencyTextRaw(ExtraDependency dependency) async {
+    final licenseData =
+        await _licenseRepo.getLicenseDataForExtraDependency(dependency);
+    final sb = StringBuffer()
+      ..writeln()
+      ..writeln(
+          '----------------------------------------------------------------------------------------------------')
+      ..writeln('name: ${dependency.name}')
+      ..writeln('version: ${dependency.version}')
+      ..writeln('license: ${licenseData.license}')
+      ..writeln(
+          '----------------------------------------------------------------------------------------------------')
+      ..writeln();
+    return sb.toString();
+  }
 }
